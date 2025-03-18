@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
+const bcrypt = require("bcrypt");
 require("dotenv").config();
 
 const app = express();
@@ -38,3 +39,35 @@ app.listen(port, () => {
 
 // Exporta o app para o Vercel
 module.exports = app;
+
+app.post("/cadastro", async (req, res) => {
+  try {
+    const { nome, email, senha } = req.body;
+
+    // Verificar se o e-mail já está cadastrado
+    const { data: existingUser, error: userError } = await supabase
+      .from("usuarios")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (existingUser) {
+      return res.status(400).json({ message: "E-mail já cadastrado!" });
+    }
+
+    // Hash da senha
+    const saltRounds = 10;
+    const senhaHash = await bcrypt.hash(senha, saltRounds);
+
+    // Inserir usuário no Supabase
+    const { data, error } = await supabase.from("usuarios").insert([
+      { nome_completo: nome, email, senha: senhaHash, is_admin: false },
+    ]);
+
+    if (error) throw error;
+
+    res.status(201).json({ message: "Usuário cadastrado com sucesso!" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
