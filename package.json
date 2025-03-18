@@ -3,10 +3,10 @@
     "start": "node server.js",
     "vercel-start": "vercel dev"
   },
-
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "pg": "^8.14.1"
   }
 }
