@@ -37,9 +37,6 @@ app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
 });
 
-// Exporta o app para o Vercel
-module.exports = app;
-
 app.post("/cadastro", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
@@ -98,5 +95,5 @@ app.get('/produtos', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+// Exporta o app para o Vercel
+module.exports = app;
