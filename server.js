@@ -37,9 +37,6 @@ app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
 });
 
-// Exporta o app para o Vercel
-module.exports = app;
-
 app.post("/cadastro", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
@@ -97,3 +94,6 @@ app.get('/produtos', async (req, res) => {
       res.status(500).json({ error: error.message });
   }
 });
+
+// Exporta o app para o Vercel
+module.exports = app;
