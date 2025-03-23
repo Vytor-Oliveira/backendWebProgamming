@@ -71,3 +71,32 @@ app.post("/cadastro", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+app.post('/produtos', async (req, res) => {
+  try {
+      const { nome, descricao, preco, estoque, tamanhos, imagem } = req.body;
+      
+      const { data, error } = await supabase
+          .from('produtos')
+          .insert([{ nome, descricao, preco, estoque, tamanhos, imagem }]);
+      
+      if (error) throw error;
+      res.status(201).json({ message: 'Produto cadastrado com sucesso', data });
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/produtos', async (req, res) => {
+  try {
+      const { data, error } = await supabase.from('produtos').select('*');
+      if (error) throw error;
+      res.status(200).json(data);
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
