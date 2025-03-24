@@ -108,6 +108,24 @@ app.delete('/produtos/:id', async (req, res) => {
   }
 });
 
+app.put('/produtos/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { nome, descricao, preco, estoque, tamanhos, imagem } = req.body;
+
+      const { data, error } = await supabase
+          .from('produtos')
+          .update({ nome, descricao, preco, estoque, tamanhos, imagem })
+          .eq('id', id);
+
+      if (error) throw error;
+
+      res.status(200).json({ message: 'Produto atualizado com sucesso', data });
+  } catch (error) {
+      res.status(500).json({ error: error.message });
+  }
+});
+
 
 // Exporta o app para o Vercel
 module.exports = app;
