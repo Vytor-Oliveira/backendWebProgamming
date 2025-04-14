@@ -17,25 +17,20 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 app.use(cors());
 app.use(express.json());
 
-// Middleware de verificação de token e admin
-function verificarTokenAdmin(req, res, next) {
+function verificarToken(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ message: "Token não fornecido" });
+  if (!authHeader) return res.status(401).json({ message: "Token não enviado." });
 
   const token = authHeader.split(" ")[1];
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: "Token inválido" });
-    if (!decoded.is_admin) return res.status(403).json({ message: "Acesso negado. Apenas administradores." });
-
-    req.user = decoded;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.usuario = decoded;
     next();
-  });
+  } catch (err) {
+    res.status(401).json({ message: "Token inválido." });
+  }
 }
 
-// Rota principal
-app.get("/", (req, res) => {
-  res.send("API rodando no Vercel!");
-});
 
 // Rota de teste
 app.get("/usuarios", async (req, res) => {
@@ -48,11 +43,21 @@ app.get("/usuarios", async (req, res) => {
   }
 });
 
-// Cadastro de usuário
+// Rota principal
+app.get("/", (req, res) => {
+  res.send("API rodando no Vercel!");
+});
+
+// Iniciar servidor
+app.listen(port, () => {
+  console.log(`Servidor rodando na porta ${port}`);
+});
+
 app.post("/cadastro", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
 
+    // Verificar se o e-mail já está cadastrado
     const { data: existingUser, error: userError } = await supabase
       .from("usuarios")
       .select("*")
@@ -63,9 +68,11 @@ app.post("/cadastro", async (req, res) => {
       return res.status(400).json({ message: "E-mail já cadastrado!" });
     }
 
+    // Hash da senha
     const saltRounds = 10;
     const senhaHash = await bcrypt.hash(senha, saltRounds);
 
+    // Inserir usuário no Supabase
     const { data, error } = await supabase.from("usuarios").insert([
       { nome_completo: nome, email, senha: senhaHash, is_admin: false },
     ]);
@@ -77,97 +84,104 @@ app.post("/cadastro", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-// Login com JWT
+////login
 app.post("/login", async (req, res) => {
-  try {
-    const { email, senha } = req.body;
+  const { email, senha } = req.body;
 
-    const { data: usuario, error } = await supabase
+  try {
+    const { data: user, error } = await supabase
       .from("usuarios")
       .select("*")
       .eq("email", email)
       .single();
 
-    if (error || !usuario) return res.status(400).json({ message: "Usuário não encontrado" });
+    if (error || !user) {
+      return res.status(401).json({ message: "Usuário não encontrado." });
+    }
 
-    const senhaValida = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaValida) return res.status(401).json({ message: "Senha incorreta" });
+    const senhaCorreta = await bcrypt.compare(senha, user.senha);
+    if (!senhaCorreta) {
+      return res.status(401).json({ message: "Senha incorreta." });
+    }
 
+    // Gerar JWT
     const token = jwt.sign(
       {
-        id: usuario.id,
-        email: usuario.email,
-        is_admin: usuario.is_admin,
+        id: user.id,
+        email: user.email,
+        is_admin: user.is_admin,
       },
       process.env.JWT_SECRET,
       { expiresIn: "2h" }
     );
 
-    res.json({ token, is_admin: usuario.is_admin });
+    res.json({ token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Rota protegida (exemplo)
-app.get("/admin/protegida", verificarTokenAdmin, (req, res) => {
-  res.json({ message: "Bem-vindo, administrador!", user: req.user });
-});
+//ROTA CADASTRO DE PRODUTOS ADMIN
+app.post('/produtos', verificarToken, async (req, res) => {
 
-// CRUD de produtos
-app.post('/produtos', async (req, res) => {
+  if (!req.usuario.is_admin) return res.status(403).json({ message: 'Apenas admins podem cadastrar produtos.' });
+
   try {
-    const { nome, descricao, preco, estoque, tamanhos, imagem } = req.body;
-
-    const { data, error } = await supabase
-      .from('produtos')
-      .insert([{ nome, descricao, preco, estoque, tamanhos, imagem }]);
-
-    if (error) throw error;
-    res.status(201).json({ message: 'Produto cadastrado com sucesso', data });
+      const { nome, descricao, preco, estoque, tamanhos, imagem } = req.body;
+      
+      const { data, error } = await supabase
+          .from('produtos')
+          .insert([{ nome, descricao, preco, estoque, tamanhos, imagem }]);
+      
+      if (error) throw error;
+      res.status(201).json({ message: 'Produto cadastrado com sucesso', data });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
   }
 });
 
+
 app.get('/produtos', async (req, res) => {
   try {
-    const { data, error } = await supabase.from('produtos').select('*');
-    if (error) throw error;
-    res.status(200).json(data);
+      const { data, error } = await supabase.from('produtos').select('*');
+      if (error) throw error;
+      res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
   }
 });
 
 app.delete('/produtos/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { error } = await supabase.from('produtos').delete().eq('id', id);
-    if (error) throw error;
-    res.status(200).json({ message: 'Produto excluído com sucesso' });
+      const { id } = req.params;
+      const { error } = await supabase.from('produtos').delete().eq('id', id);
+      
+      if (error) throw error;
+
+      res.status(200).json({ message: 'Produto excluído com sucesso' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
   }
 });
 
 app.put('/produtos/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { nome, descricao, preco, estoque, tamanhos, imagem } = req.body;
+      const { id } = req.params;
+      const { nome, descricao, preco, estoque, tamanhos, imagem } = req.body;
 
-    const { data, error } = await supabase
-      .from('produtos')
-      .update({ nome, descricao, preco, estoque, tamanhos, imagem })
-      .eq('id', id);
+      const { data, error } = await supabase
+          .from('produtos')
+          .update({ nome, descricao, preco, estoque, tamanhos, imagem })
+          .eq('id', id);
 
-    if (error) throw error;
-    res.status(200).json({ message: 'Produto atualizado com sucesso', data });
+      if (error) throw error;
+
+      res.status(200).json({ message: 'Produto atualizado com sucesso', data });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
   }
 });
+
 
 // Exporta o app para o Vercel
 module.exports = app;
