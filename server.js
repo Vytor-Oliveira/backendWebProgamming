@@ -87,7 +87,7 @@ app.post("/cadastro", async (req, res) => {
   }
 });
 ////login
-router.post("/login", async (req, res) => {
+app.post("/login", async (req, res) => {
   const { email, senha } = req.body;
 
   if (!email || !senha) {
