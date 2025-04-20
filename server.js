@@ -17,6 +17,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 app.use(cors());
 app.use(express.json());
 
+// Função para verificar token de autenticação
 function verificarToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader)
@@ -32,6 +33,7 @@ function verificarToken(req, res, next) {
   }
 }
 
+// Função para verificar se o usuário é administrador
 function verificarAdmin(req, res, next) {
   if (!req.usuario || !req.usuario.is_admin) {
     return res
@@ -57,16 +59,11 @@ app.get("/", (req, res) => {
   res.send("API rodando no Vercel!");
 });
 
-// Iniciar servidor
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
-});
-
+// Rota de Cadastro de Usuário
 app.post("/cadastro", async (req, res) => {
   try {
     const { nome, email, senha } = req.body;
 
-    // Verificar se o e-mail já está cadastrado
     const { data: existingUser, error: userError } = await supabase
       .from("usuarios")
       .select("*")
@@ -81,12 +78,9 @@ app.post("/cadastro", async (req, res) => {
     const saltRounds = 10;
     const senhaHash = await bcrypt.hash(senha, saltRounds);
 
-    // Inserir usuário no Supabase
     const { data, error } = await supabase
       .from("usuarios")
-      .insert([
-        { nome_completo: nome, email, senha: senhaHash, is_admin: false },
-      ]);
+      .insert([{ nome_completo: nome, email, senha: senhaHash, is_admin: false }]);
 
     if (error) throw error;
 
@@ -95,7 +89,8 @@ app.post("/cadastro", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-////login
+
+// Rota de Login
 app.post("/login", async (req, res) => {
   const { email, senha } = req.body;
 
@@ -131,13 +126,8 @@ app.post("/login", async (req, res) => {
   res.json({ token });
 });
 
-//ROTA CADASTRO DE PRODUTOS ADMIN
+// Rota de Cadastro de Produtos (Admin)
 app.post("/produtos", verificarToken, verificarAdmin, async (req, res) => {
-  if (!req.usuario.is_admin)
-    return res
-      .status(403)
-      .json({ message: "Apenas admins podem cadastrar produtos." });
-
   try {
     const { nome, descricao, preco, estoque, tamanhos, imagem } = req.body;
 
@@ -146,12 +136,14 @@ app.post("/produtos", verificarToken, verificarAdmin, async (req, res) => {
       .insert([{ nome, descricao, preco, estoque, tamanhos, imagem }]);
 
     if (error) throw error;
+
     res.status(201).json({ message: "Produto cadastrado com sucesso", data });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// Rota para obter todos os produtos
 app.get("/produtos", async (req, res) => {
   try {
     const { data, error } = await supabase.from("produtos").select("*");
@@ -162,6 +154,27 @@ app.get("/produtos", async (req, res) => {
   }
 });
 
+// Rota para obter um único produto pelo ID
+app.get("/produtos/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from("produtos")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: "Produto não encontrado." });
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rota para excluir um produto
 app.delete("/produtos/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -175,6 +188,7 @@ app.delete("/produtos/:id", async (req, res) => {
   }
 });
 
+// Rota para atualizar um produto
 app.put("/produtos/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -195,3 +209,8 @@ app.put("/produtos/:id", async (req, res) => {
 
 // Exporta o app para o Vercel
 module.exports = app;
+
+// Inicia o servidor
+app.listen(port, () => {
+  console.log(`Servidor rodando na porta ${port}`);
+});
