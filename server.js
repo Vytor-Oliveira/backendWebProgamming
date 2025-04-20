@@ -32,6 +32,15 @@ function verificarToken(req, res, next) {
   }
 }
 
+function verificarAdmin(req, res, next) {
+  if (!req.usuario || !req.usuario.is_admin) {
+    return res
+      .status(403)
+      .json({ message: "Acesso restrito a administradores." });
+  }
+  next();
+}
+
 // Rota de teste
 app.get("/usuarios", async (req, res) => {
   try {
@@ -123,7 +132,7 @@ app.post("/login", async (req, res) => {
 });
 
 //ROTA CADASTRO DE PRODUTOS ADMIN
-app.post("/produtos", verificarToken, async (req, res) => {
+app.post("/produtos", verificarToken, verificarAdmin, async (req, res) => {
   if (!req.usuario.is_admin)
     return res
       .status(403)
